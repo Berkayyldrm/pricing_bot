@@ -42,5 +42,7 @@ def update_tables():
         print(f"Daily Database connection error: {e}")
 
 if __name__ == "__main__":
+    print("*******************************************")
+    print("DAILY TASK")
     print(datetime.now())
     update_tables()

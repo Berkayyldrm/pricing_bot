@@ -6,6 +6,9 @@ import pika
 import json
 
 main_urls = {"hepsiburada_tel": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483642_371965&tab=allproducts",
+             "hepsiburada_pc": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483646_3000500&tab=allproducts",
+             "hepsiburada_evElektronigi": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483638&tab=allproducts",
+             "hepsiburada_oyunOyunKonsolu": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=60003054_2147483602&tab=allproducts",
              "kolaysepet": "https://www.hepsiburada.com/magaza/kolaysepet?kategori=2147483638&tab=allproducts"}
 
 one_page_product_count = 36
@@ -38,7 +41,9 @@ def get_response_from_url(url):
     with httpx.Client(headers=headers, cookies=cookies) as client:
         response = client.get(url)
         return response.content
-    
+
+print("----------------------------------------------------------------")
+print(datetime.now()) 
 for name, main_url in main_urls.items():
     print("name", name)
     page = 0
@@ -46,7 +51,6 @@ for name, main_url in main_urls.items():
     prices = []
     while True:
         page += 1
-        print("page", page)
         if page == 1:
             page_link = ""
         else:
@@ -55,7 +59,6 @@ for name, main_url in main_urls.items():
 
         tree = html.fromstring(response_content)
 
-        # Tüm 'data-test-id="price-current-price"' div'lerini bul ve metinlerini al
         price_divs = tree.xpath("//div[@data-test-id='price-current-price']/text()")
         if price_divs:
             prices.extend([price.strip() for price in price_divs])
@@ -63,21 +66,18 @@ for name, main_url in main_urls.items():
                 float(item.replace(".", "").replace(",", ".")) if isinstance(item, str) else item 
                 for item in prices
             ]
-        else:
-            print("Fiyat bilgisi bulunamadı.")
+
+        product_cards = tree.xpath("//li[starts-with(@class, 'productListContent')]")
+        for product in product_cards:
+            link_divs = product.xpath(".//a[@title]/@href")
+            if link_divs:
+                links.extend([
+                    "https://www.hepsiburada.com" + link.strip() for link in link_divs if link.strip()
+                ])
 
         total_product_count_xpath = f"/html/body/div[2]/div/div/main/div[1]/div/div/div[2]/div/div[2]/div[2]/div/div/div[1]/div/div[2]/div/div/div/div/div/div/div/div[1]/div/div[1]/span"
         total_product_count = int(tree.xpath(total_product_count_xpath)[0].text)
-        for i in range(one_page_product_count):
-            i += 1
-            general_product_link_xpath = f"/html/body/div[2]/div/div/main/div/div/div/div[2]/div/div[2]/div[2]/div/div/div[2]/div[4]/div/div[2]/div/div/div/div/div/div/ul/li[{i}]/div/a"
-            general_product_link = tree.xpath(f"{general_product_link_xpath}/@href")
-
-            if general_product_link:
-                l = general_product_link[0].text if hasattr(general_product_link[0], 'text') else str(general_product_link[0])
-                links.append(l)
         if total_product_count / 36 < page:
-            print("Last page executed.")
             break
     link_price = dict(zip(links, prices))
     data = {
@@ -86,5 +86,6 @@ for name, main_url in main_urls.items():
         "link_price": link_price}
     
     message_json = json.dumps(data)
+    #print(link_price)
     publish_message(message_json)
     

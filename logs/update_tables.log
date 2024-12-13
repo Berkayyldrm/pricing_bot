@@ -1,62 +1,12 @@
-2024-12-03 21:30:01.119369
-Daily Failed to update table hepsiburada_tel: column "control_price_daily" does not exist
-LINE 4:                     WHERE control_price_daily IS DISTINCT FR...
-                                  ^
-
-Daily Failed to update table kolaysepet: column "control_price_daily" does not exist
-LINE 4:                     WHERE control_price_daily IS DISTINCT FR...
-                                  ^
-
-2024-12-03 21:30:01.167957
-Hourly Failed to update table hepsiburada_tel: column "control_price_hourly" does not exist
+------------------------------------------------
+HOURLY TASK
+2024-12-13 21:00:02.028610
+Hourly Updated table: hepsiburada_pc
+Hourly Failed to update table alert_logs: column "control_price_hourly" does not exist
 LINE 4:                     WHERE control_price_hourly IS DISTINCT F...
                                   ^
 
-Hourly Failed to update table kolaysepet: column "control_price_hourly" does not exist
-LINE 4:                     WHERE control_price_hourly IS DISTINCT F...
-                                  ^
-
-2024-12-03 21:31:01.603462
-2024-12-03 21:31:01.640691
-2024-12-03 21:32:01.261614
-Daily Updated table: hepsiburada_tel
-Daily Updated table: kolaysepet
-2024-12-03 21:32:01.311084
 Hourly Updated table: hepsiburada_tel
+Hourly Updated table: hepsiburada_evelektronigi
 Hourly Updated table: kolaysepet
-2024-12-03 21:33:01.824808
-Daily Updated table: hepsiburada_tel
-Daily Updated table: kolaysepet
-2024-12-03 21:33:01.831024
-Hourly Updated table: hepsiburada_tel
-Hourly Updated table: kolaysepet
-2024-12-03 21:34:01.246257
-Hourly Updated table: hepsiburada_tel
-Hourly Updated table: kolaysepet
-2024-12-03 21:34:01.290344
-Daily Updated table: hepsiburada_tel
-Daily Updated table: kolaysepet
-2024-12-03 21:35:01.489920
-Hourly Updated table: hepsiburada_tel
-Hourly Updated table: kolaysepet
-2024-12-03 21:35:01.525934
-Daily Updated table: hepsiburada_tel
-Daily Updated table: kolaysepet
-2024-12-03 21:36:01.391230
-Daily Updated table: hepsiburada_tel
-Daily Updated table: kolaysepet
-2024-12-03 21:36:01.400628
-Hourly Updated table: hepsiburada_tel
-Hourly Updated table: kolaysepet
-2024-12-03 21:37:01.697093
-Daily Updated table: hepsiburada_tel
-Daily Updated table: kolaysepet
-2024-12-03 21:37:01.751331
-Hourly Updated table: hepsiburada_tel
-Hourly Updated table: kolaysepet
-2024-12-03 21:38:01.296395
-Hourly Updated table: hepsiburada_tel
-Hourly Updated table: kolaysepet
-2024-12-03 21:38:01.322199
-Daily Updated table: hepsiburada_tel
-Daily Updated table: kolaysepet
+Hourly Updated table: hepsiburada_oyunoyunkonsolu

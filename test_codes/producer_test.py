@@ -28,5 +28,5 @@ def publish_message(name, links, prices):
 
 # Örnek çağrı
 links = ["link1", "link2", "link3"]
-prices = [400, 200, 300]
+prices = [500, 200, 300]
 publish_message("SampleName", links, prices)

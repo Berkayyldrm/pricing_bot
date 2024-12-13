@@ -55,7 +55,7 @@ def insert_data(name, time, link_price):
 
 # RabbitMQ mesaj dinleyici
 def callback(ch, method, properties, body):
-    print(f"Received message: {body}")
+    #print(f"Received message: {body}")
     data = json.loads(body)
 
     name = data["name"]
@@ -65,7 +65,7 @@ def callback(ch, method, properties, body):
     # Veritabanında tablo oluştur ve veri ekle
     create_or_connect_table(name)
     insert_data(name, time, link_price)
-    print(f"Data written to {name} table: {link_price}")
+    #print(f"Data written to {name} table: {link_price}")
 
 def consume_messages():
     credentials = pika.PlainCredentials('user', 'password')
@@ -81,5 +81,5 @@ def consume_messages():
     print("Waiting for messages. To exit, press CTRL+C")
     channel.start_consuming()
 
-# Mesajları dinle
-consume_messages()
+if __name__ == "__main__":
+    consume_messages()

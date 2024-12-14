@@ -2,82 +2,140 @@ import pika
 import psycopg2
 import json
 
-# Veritabanı bağlantısı ve tablo yönetimi
-def create_or_connect_table(name):
-    connection = psycopg2.connect(
-        dbname="mydatabase",
-        user="myuser",
-        password="mypassword",
-        host="localhost",
-        port="5432"
+# Database Configuration
+DB_CONFIG = {
+    "host": "localhost",
+    "port": "5432",
+    "dbname": "mydatabase",
+    "user": "myuser",
+    "password": "mypassword",
+}
+
+# RabbitMQ Configuration
+RABBITMQ_CONFIG = {
+    "host": "localhost",
+    "port": 5672,
+    "queue": "price_queue",
+    "credentials": pika.PlainCredentials("user", "password"),
+}
+
+# Publish a message to RabbitMQ
+def publish_message(message, queue="telegram"):
+    connection = pika.BlockingConnection(
+        pika.ConnectionParameters(
+            RABBITMQ_CONFIG["host"], RABBITMQ_CONFIG["port"], "/", RABBITMQ_CONFIG["credentials"]
+        )
     )
-    cursor = connection.cursor()
-    
-    # Tabloyu oluşturma (eğer yoksa)
-    create_table_query = f"""
+    channel = connection.channel()
+    channel.queue_declare(queue=queue)
+    channel.basic_publish(exchange="", routing_key=queue, body=message)
+    connection.close()
+
+# Connect to PostgreSQL
+def get_db_connection():
+    return psycopg2.connect(**DB_CONFIG)
+
+# Create or connect to a table
+def create_or_connect_table(name):
+    query = f"""
     CREATE TABLE IF NOT EXISTS {name} (
         id TEXT PRIMARY KEY,
         time TIMESTAMP,
         current_price FLOAT,
-        control_price_hourly FLOAT,
+        prev_current_price FLOAT,
         control_price_daily FLOAT
     );
     """
-    cursor.execute(create_table_query)
-    connection.commit()
-    cursor.close()
-    connection.close()
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(query)
 
+# Insert or update data in a table
 def insert_data(name, time, link_price):
-    connection = psycopg2.connect(
-        dbname="mydatabase",
-        user="myuser",
-        password="mypassword",
-        host="localhost",
-        port="5432"
-    )
-    cursor = connection.cursor()
+    query = f"""
+    INSERT INTO {name} (id, time, current_price)
+    VALUES (%s, %s, %s)
+    ON CONFLICT (id) DO UPDATE
+    SET current_price = EXCLUDED.current_price, time = EXCLUDED.time;
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            for link_id, current_price in link_price.items():
+                cursor.execute(query, (link_id, time, current_price))
 
-    # Her key-value çiftini tabloya ekleme
-    for link_id, current_price in link_price.items():
-        ### BURAYA FİYAT KONTROL KODU EKLENECEK.
-        insert_query = f"""
-        INSERT INTO {name} (id, time, current_price)
-        VALUES (%s, %s, %s)
-        ON CONFLICT (id) DO UPDATE
-        SET current_price = EXCLUDED.current_price, time = EXCLUDED.time;
-        """
-        cursor.execute(insert_query, (link_id, time, current_price))
+# Update previous price columns
+def update_tables():
+    query = """
+    UPDATE {table_name}
+    SET prev_current_price = current_price
+    WHERE prev_current_price IS DISTINCT FROM current_price;
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT tablename FROM pg_tables WHERE schemaname = 'public';
+            """)
+            for table_name, in cursor.fetchall():
+                try:
+                    cursor.execute(query.format(table_name=table_name))
+                    conn.commit()
+                except Exception as e:
+                    conn.rollback()
+                    print(f"Failed to update table {table_name}: {e}")
 
-    connection.commit()
-    cursor.close()
-    connection.close()
+# Compare columns and publish messages
+def compare_columns():
+    query_check_columns = """
+    SELECT column_name FROM information_schema.columns
+    WHERE table_name = %s AND column_name IN ('current_price', 'prev_current_price');
+    """
+    query_compare = """
+    SELECT id, current_price, prev_current_price, control_price_daily
+    FROM {table_name}
+    WHERE current_price IS DISTINCT FROM prev_current_price;
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT tablename FROM pg_tables WHERE schemaname = 'public';
+            """)
+            for table_name, in cursor.fetchall():
+                cursor.execute(query_check_columns, (table_name,))
+                if len(cursor.fetchall()) == 2:
+                    cursor.execute(query_compare.format(table_name=table_name))
+                    rows = cursor.fetchall()
+                    if rows:
+                        for id, current_price, prev_current_price, control_price_daily in rows:
+                            if current_price < prev_current_price:
+                                change = abs(current_price - prev_current_price) / prev_current_price * 100
+                                message = (
+                                    f"Url: {id}, Anlık Fiyat: {current_price}, Bir Önceki Fiyat: {prev_current_price},"
+                                    f" Gece Fiyatı: {control_price_daily} \n Anlık Değişim Oranı: {change:.2f}%\n"
+                                )
+                                print(f"Change for {table_name}")
+                                publish_message(message)
+                    else:
+                        print(f"There is no change for {table_name}")
 
-# RabbitMQ mesaj dinleyici
+# Process incoming RabbitMQ messages
 def callback(ch, method, properties, body):
-    #print(f"Received message: {body}")
     data = json.loads(body)
-
-    name = data["name"]
-    time = data["time"]
-    link_price = data["link_price"]
-
-    # Veritabanında tablo oluştur ve veri ekle
+    name, time, link_price = data["name"], data["time"], data["link_price"]
     create_or_connect_table(name)
+    update_tables()
     insert_data(name, time, link_price)
-    #print(f"Data written to {name} table: {link_price}")
+    compare_columns()
 
+# Start consuming messages from RabbitMQ
 def consume_messages():
-    credentials = pika.PlainCredentials('user', 'password')
-    connection = pika.BlockingConnection(pika.ConnectionParameters('localhost', 5672, '/', credentials))
+    connection = pika.BlockingConnection(
+        pika.ConnectionParameters(
+            RABBITMQ_CONFIG["host"], RABBITMQ_CONFIG["port"], "/", RABBITMQ_CONFIG["credentials"]
+        )
+    )
     channel = connection.channel()
-
-    # Kuyruğu tanımlama
-    channel.queue_declare(queue='test_queue')
-
-    # Mesaj dinleme
-    channel.basic_consume(queue='test_queue', on_message_callback=callback, auto_ack=True)
-
+    channel.queue_declare(queue=RABBITMQ_CONFIG["queue"])
+    channel.basic_consume(queue=RABBITMQ_CONFIG["queue"], on_message_callback=callback, auto_ack=True)
     print("Waiting for messages. To exit, press CTRL+C")
     channel.start_consuming()
 

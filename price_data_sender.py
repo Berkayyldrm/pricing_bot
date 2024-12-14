@@ -18,9 +18,9 @@ def publish_message(message):
     connection = pika.BlockingConnection(pika.ConnectionParameters('localhost', 5672, '/', credentials))
     channel = connection.channel()
 
-    channel.queue_declare(queue='test_queue')
+    channel.queue_declare(queue='price_queue')
 
-    channel.basic_publish(exchange='', routing_key='test_queue', body=message)
+    channel.basic_publish(exchange='', routing_key='price_queue', body=message)
 
     connection.close()
 

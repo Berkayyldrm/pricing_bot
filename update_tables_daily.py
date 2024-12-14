@@ -27,7 +27,6 @@ def update_tables():
                 cursor.execute(f"""
                     UPDATE {table_name} 
                     SET control_price_daily = current_price 
-                    WHERE control_price_daily IS DISTINCT FROM current_price;
                 """)
                 conn.commit()
                 print(f"Daily Updated table: {table_name}")

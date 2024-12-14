@@ -1,9 +1,9 @@
-import requests
 from lxml import html
 from datetime import datetime
 import httpx
 import pika
 import json
+import traceback
 
 main_urls = {"hepsiburada_tel": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483642_371965&tab=allproducts",
              "hepsiburada_pc": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483646_3000500&tab=allproducts",
@@ -45,47 +45,53 @@ def get_response_from_url(url):
 print("----------------------------------------------------------------")
 print(datetime.now()) 
 for name, main_url in main_urls.items():
-    print("name", name)
-    page = 0
-    links = []
-    prices = []
-    while True:
-        page += 1
-        if page == 1:
-            page_link = ""
-        else:
-            page_link = f"&sayfa={page}"
-        response_content = get_response_from_url(url=main_url+page_link)
+    try:
+        print("name", name)
+        page = 0
+        links = []
+        prices = []
+        total_product_count = 0
+        while True:
+            page += 1
+            if page == 1:
+                page_link = ""
+                response_content = get_response_from_url(url=main_url+page_link)
+                tree = html.fromstring(response_content)
+                total_product_count = tree.xpath('//span[contains(@class, "totalProductCount")]/text()')[0]
+                total_product_count = int(total_product_count)
+            else:
+                page_link = f"&sayfa={page}"
+                response_content = get_response_from_url(url=main_url+page_link)
+                tree = html.fromstring(response_content)
 
-        tree = html.fromstring(response_content)
+            price_divs = tree.xpath("//div[@data-test-id='price-current-price']/text()")
+            if price_divs:
+                prices.extend([price.strip() for price in price_divs])
+                prices = [
+                    float(item.replace(".", "").replace(",", ".")) if isinstance(item, str) else item 
+                    for item in prices
+                ]
 
-        price_divs = tree.xpath("//div[@data-test-id='price-current-price']/text()")
-        if price_divs:
-            prices.extend([price.strip() for price in price_divs])
-            prices = [
-                float(item.replace(".", "").replace(",", ".")) if isinstance(item, str) else item 
-                for item in prices
-            ]
+            product_cards = tree.xpath("//li[starts-with(@class, 'productListContent')]")
+            for product in product_cards:
+                link_divs = product.xpath(".//a[@title]/@href")
+                if link_divs:
+                    links.extend([
+                        "https://www.hepsiburada.com" + link.strip() for link in link_divs if link.strip()
+                    ])
 
-        product_cards = tree.xpath("//li[starts-with(@class, 'productListContent')]")
-        for product in product_cards:
-            link_divs = product.xpath(".//a[@title]/@href")
-            if link_divs:
-                links.extend([
-                    "https://www.hepsiburada.com" + link.strip() for link in link_divs if link.strip()
-                ])
-
-        total_product_count_xpath = f"/html/body/div[2]/div/div/main/div[1]/div/div/div[2]/div/div[2]/div[2]/div/div/div[1]/div/div[2]/div/div/div/div/div/div/div/div[1]/div/div[1]/span"
-        total_product_count = int(tree.xpath(total_product_count_xpath)[0].text)
-        if total_product_count / 36 < page:
-            break
-    link_price = dict(zip(links, prices))
-    data = {
-        "time": datetime.now().isoformat(),
-        "name": name,
-        "link_price": link_price}
-    
-    message_json = json.dumps(data)
-    #print(link_price)
-    publish_message(message_json)
+            if total_product_count / 36 < page:
+                break
+        link_price = dict(zip(links, prices))
+        data = {
+            "time": datetime.now().isoformat(),
+            "name": name,
+            "link_price": link_price}
+        
+        message_json = json.dumps(data)
+        #print(link_price)
+        publish_message(message_json)
+    except:
+        print(traceback.format_exc())
+        continue
     

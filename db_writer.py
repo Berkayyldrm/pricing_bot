@@ -1,6 +1,7 @@
 import pika
 import psycopg2
 import json
+from datetime import datetime
 
 # Database Configuration
 DB_CONFIG = {
@@ -64,7 +65,7 @@ def insert_data(name, time, link_price):
                 cursor.execute(query, (link_id, time, current_price))
 
 # Update previous price columns
-def update_tables():
+def update_tables(table_name):
     query = """
     UPDATE {table_name}
     SET prev_current_price = current_price
@@ -72,19 +73,15 @@ def update_tables():
     """
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT tablename FROM pg_tables WHERE schemaname = 'public';
-            """)
-            for table_name, in cursor.fetchall():
-                try:
-                    cursor.execute(query.format(table_name=table_name))
-                    conn.commit()
-                except Exception as e:
-                    conn.rollback()
-                    print(f"Failed to update table {table_name}: {e}")
+            try:
+                cursor.execute(query.format(table_name=table_name))
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                print(f"Failed to update table {table_name}: {e}")
 
 # Compare columns and publish messages
-def compare_columns():
+def compare_columns(table_name):
     query_check_columns = """
     SELECT column_name FROM information_schema.columns
     WHERE table_name = %s AND column_name IN ('current_price', 'prev_current_price');
@@ -96,35 +93,36 @@ def compare_columns():
     """
     with get_db_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute("""
-                SELECT tablename FROM pg_tables WHERE schemaname = 'public';
-            """)
-            for table_name, in cursor.fetchall():
-                cursor.execute(query_check_columns, (table_name,))
-                if len(cursor.fetchall()) == 2:
-                    cursor.execute(query_compare.format(table_name=table_name))
-                    rows = cursor.fetchall()
-                    if rows:
-                        for id, current_price, prev_current_price, control_price_daily in rows:
+            cursor.execute(query_check_columns, (table_name,))
+            if len(cursor.fetchall()) == 2:
+                cursor.execute(query_compare.format(table_name=table_name))
+                rows = cursor.fetchall()
+                if rows:
+                    for id, current_price, prev_current_price, control_price_daily in rows:
+                        if current_price and prev_current_price:
                             if current_price < prev_current_price:
                                 change = abs(current_price - prev_current_price) / prev_current_price * 100
                                 message = (
                                     f"Url: {id}, Anlık Fiyat: {current_price}, Bir Önceki Fiyat: {prev_current_price},"
                                     f" Gece Fiyatı: {control_price_daily} \n Anlık Değişim Oranı: {change:.2f}%\n"
                                 )
-                                print(f"Change for {table_name}")
+                                print(f"Change for {table_name}, Message: {message}")
                                 publish_message(message)
-                    else:
-                        print(f"There is no change for {table_name}")
+                        else:
+                            print(f"Some None Values -> current_price: {current_price} , prev_current_price: {prev_current_price}")
+                else:
+                    print(f"There is no change for {table_name}")
 
 # Process incoming RabbitMQ messages
 def callback(ch, method, properties, body):
+    print("----------------------------------------------------------------")
+    print(datetime.now()) 
     data = json.loads(body)
     name, time, link_price = data["name"], data["time"], data["link_price"]
     create_or_connect_table(name)
-    update_tables()
+    update_tables(table_name=name)
     insert_data(name, time, link_price)
-    compare_columns()
+    compare_columns(table_name=name)
 
 # Start consuming messages from RabbitMQ
 def consume_messages():

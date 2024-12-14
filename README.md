@@ -17,6 +17,5 @@ crontab
 
 constantly works scripts
 ------------------------
-nohup /home/berkyyld/miniconda3/envs/pricing_bot/bin/python3 /home/berkyyld/pricing_bot/db_writer.py > /home/berkyyld/pricing_bot/logs/db_writer.log &
-nohup /home/berkyyld/miniconda3/envs/pricing_bot/bin/python3 /home/berkyyld/pricing_bot/telegram_sender.py > /home/berkyyld/pricing_bot/logs/telegram_sender.log &
-
+nohup /home/berkyyld/miniconda3/envs/pricing_bot/bin/python3 -u /home/berkyyld/pricing_bot/db_writer.py > /home/berkyyld/pricing_bot/logs/db_writer.log 2>&1 &
+nohup /home/berkyyld/miniconda3/envs/pricing_bot/bin/python3 -u /home/berkyyld/pricing_bot/telegram_sender.py > /home/berkyyld/pricing_bot/logs/telegram_sender.log 2>&1 &

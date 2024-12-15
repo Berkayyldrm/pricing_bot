@@ -95,6 +95,7 @@ def compare_columns(table_name):
         with conn.cursor() as cursor:
             cursor.execute(query_check_columns, (table_name,))
             if len(cursor.fetchall()) == 2:
+                print(f"Valid Table Name: {table_name}")
                 cursor.execute(query_compare.format(table_name=table_name))
                 rows = cursor.fetchall()
                 if rows:
@@ -108,10 +109,14 @@ def compare_columns(table_name):
                                 )
                                 print(f"Change for {table_name}, Message: {message}")
                                 publish_message(message)
+                            else:
+                                print(f"Price Raised for id: {id} -> current_price: {current_price} , prev_current_price: {prev_current_price}")
                         else:
-                            print(f"Some None Values -> current_price: {current_price} , prev_current_price: {prev_current_price}")
+                            print(f"Some None Values for id: {id} -> current_price: {current_price} , prev_current_price: {prev_current_price}")
                 else:
                     print(f"There is no change for {table_name}")
+            else:
+                print(f"Invalid Table Name: {table_name}")
 
 # Process incoming RabbitMQ messages
 def callback(ch, method, properties, body):
@@ -119,11 +124,11 @@ def callback(ch, method, properties, body):
     print(datetime.now()) 
     data = json.loads(body)
     name, time, link_price = data["name"], data["time"], data["link_price"]
+    print("Table: ", name)
     create_or_connect_table(name)
     update_tables(table_name=name)
     insert_data(name, time, link_price)
     compare_columns(table_name=name)
-
 # Start consuming messages from RabbitMQ
 def consume_messages():
     connection = pika.BlockingConnection(

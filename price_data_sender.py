@@ -7,8 +7,8 @@ import traceback
 
 main_urls = {"hepsiburada_tel": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483642_371965&tab=allproducts",
              "hepsiburada_pc": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483646_3000500&tab=allproducts",
-             "hepsiburada_evElektronigi": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483638&tab=allproducts",
-             "hepsiburada_oyunOyunKonsolu": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=60003054_2147483602&tab=allproducts",
+             "hepsiburada_ev_elektronigi": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483638&tab=allproducts",
+             "hepsiburada_oyun_oyun_konsolu": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=60003054_2147483602&tab=allproducts",
              "kolaysepet": "https://www.hepsiburada.com/magaza/kolaysepet?kategori=2147483638&tab=allproducts"}
 
 one_page_product_count = 36

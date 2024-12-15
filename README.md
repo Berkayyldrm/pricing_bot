@@ -12,8 +12,8 @@ CREATE TABLE alert_logs(
 
 crontab
 -------
-*/5 * * * * /home/berkyyld/miniconda3/envs/pricing_bot/bin/python3 /home/berkyyld/pricing_bot/price_data_sender.py >> /home/berkyyld/pricing_bot/logs/price_sender.log 2>&1
-0 0 * * * /home/berkyyld/miniconda3/envs/pricing_bot/bin/python3 /home/berkyyld/pricing_bot/update_tables_daily.py  >> /home/berkyyld/pricing_bot/logs/update_tables.log 2>&1
+*/5 * * * * /home/berkyyld/miniconda3/envs/pricing_bot/bin/python3 -u /home/berkyyld/pricing_bot/price_data_sender.py >> /home/berkyyld/pricing_bot/logs/price_sender.log 2>&1
+0 0 * * * /home/berkyyld/miniconda3/envs/pricing_bot/bin/python3 -u /home/berkyyld/pricing_bot/update_tables_daily.py  >> /home/berkyyld/pricing_bot/logs/update_tables.log 2>&1
 
 constantly works scripts
 ------------------------

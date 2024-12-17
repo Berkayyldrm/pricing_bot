@@ -29,7 +29,7 @@ def publish_message(message, queue="telegram"):
     )
     channel = connection.channel()
     channel.queue_declare(queue=queue)
-    channel.basic_publish(exchange="", routing_key=queue, body=message)
+    channel.basic_publish(exchange="", routing_key=queue, body=json.dumps(message))
     connection.close()
 
 # Connect to PostgreSQL
@@ -101,14 +101,29 @@ def compare_columns(table_name):
                 if rows:
                     for id, current_price, prev_current_price, control_price_daily in rows:
                         if current_price and prev_current_price:
-                            if current_price < prev_current_price:
+                            if not control_price_daily:
+                                control_price_daily = 99999999999
+                            if current_price < prev_current_price and current_price < control_price_daily:
                                 change = abs(current_price - prev_current_price) / prev_current_price * 100
-                                message = (
-                                    f"Url: {id}, Anlık Fiyat: {current_price}, Bir Önceki Fiyat: {prev_current_price},"
-                                    f" Gece Fiyatı: {control_price_daily} \n Anlık Değişim Oranı: {change:.2f}%\n"
-                                )
-                                print(f"Change for {table_name}, Message: {message}")
-                                publish_message(message)
+                                if change > 1:
+                                    message_text = (
+                                        f"Url: {id}, Anlık Fiyat: {current_price}, Bir Önceki Fiyat: {prev_current_price},"
+                                        f" Gece Fiyatı: {control_price_daily} \n Anlık Değişim Oranı: {change:.2f}%\n"
+                                    )
+                                    print(f"Change for {table_name}, Message: {message_text}")
+                                    message = {
+                                        "text": message_text,
+                                        "category": 1
+                                    }
+                                    publish_message(message)
+
+                                    if change > 50:
+                                        message = {
+                                        "text": message_text,
+                                        "category": 2
+                                        }
+                                        publish_message(message)
+                                
                             else:
                                 print(f"Price Raised for id: {id} -> current_price: {current_price} , prev_current_price: {prev_current_price}")
                         else:
@@ -117,6 +132,25 @@ def compare_columns(table_name):
                     print(f"There is no change for {table_name}")
             else:
                 print(f"Invalid Table Name: {table_name}")
+
+def tel_5k_query(table_name):
+    query_tel = """
+    SELECT id, current_price, prev_current_price, control_price_daily
+    FROM {table_name};
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(query_tel.format(table_name=table_name))
+            rows = cursor.fetchall()
+            if rows:
+                for id, current_price, prev_current_price, control_price_daily in rows:
+                    if table_name == "hepsiburada_tel" and current_price < 4000:
+                            message_text = f"Url: {id}, Anlık Fiyat: {current_price}"
+                            message = {
+                                "text": message_text,
+                                "category": 3
+                                }
+                            publish_message(message)
 
 # Process incoming RabbitMQ messages
 def callback(ch, method, properties, body):
@@ -129,6 +163,7 @@ def callback(ch, method, properties, body):
     update_tables(table_name=name)
     insert_data(name, time, link_price)
     compare_columns(table_name=name)
+    tel_5k_query(table_name=name)
 # Start consuming messages from RabbitMQ
 def consume_messages():
     connection = pika.BlockingConnection(

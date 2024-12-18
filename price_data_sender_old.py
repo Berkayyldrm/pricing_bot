@@ -5,14 +5,22 @@ import pika
 import json
 import traceback
 import re
-from concurrent.futures import ThreadPoolExecutor, as_completed
+
+main_urls = {"hepsiburada_tel": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483642_371965&tab=allproducts",
+             "hepsiburada_pc": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483646_3000500&tab=allproducts",
+             "hepsiburada_ev_elektronigi": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483638&tab=allproducts",
+             "hepsiburada_oyun_oyun_konsolu": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=60003054_2147483602&tab=allproducts",
+             "kolaysepet": "https://www.hepsiburada.com/magaza/kolaysepet?kategori=2147483638&tab=allproducts"}
 
 def publish_message(message):
     credentials = pika.PlainCredentials('user', 'password')
     connection = pika.BlockingConnection(pika.ConnectionParameters('localhost', 5672, '/', credentials))
     channel = connection.channel()
+
     channel.queue_declare(queue='price_queue')
+
     channel.basic_publish(exchange='', routing_key='price_queue', body=message)
+
     connection.close()
 
 def get_response_from_url(url):
@@ -33,8 +41,12 @@ def get_response_from_url(url):
         response = client.get(url)
         return response.content
 
-def process_url(name, main_url):
+print("----------------------------------------------------------------")
+t1 = datetime.now()
+print(t1)
+for name, main_url in main_urls.items():
     try:
+        print("name", name)
         page = 0
         link_price = {}
         total_product_count = 0
@@ -73,7 +85,7 @@ def process_url(name, main_url):
                 if price and link:
                     link_price[link] = price
 
-            if total_product_count / 36 < page:  # 36 one page product count
+            if total_product_count / 36 < page: # 36 one page product count
                 break
         
         #link_price = dict(zip(links, prices))
@@ -85,41 +97,9 @@ def process_url(name, main_url):
         message_json = json.dumps(data)
         #print(link_price)
         publish_message(message_json)
-        return {name: len(link_price)}
+        t2 = datetime.now()
+        print("Spend Time: ", t2-t1)
     except:
-        print(f"Error in {name}: {traceback.format_exc()}")
-        return {name: None}
-
-def main():
-    main_urls = {"hepsiburada_tel": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483642_371965&tab=allproducts",
-             "hepsiburada_pc": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483646_3000500&tab=allproducts",
-             "hepsiburada_ev_elektronigi": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483638&tab=allproducts",
-             "hepsiburada_oyun_oyun_konsolu": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=60003054_2147483602&tab=allproducts",
-             "kolaysepet": "https://www.hepsiburada.com/magaza/kolaysepet?kategori=2147483638&tab=allproducts"}
-   
-    print("----------------------------------------------------------------")
-    t1 = datetime.now()
-    print("Start Time:", t1)
-
-    results = {}
-    with ThreadPoolExecutor(max_workers=5) as executor:
-        future_to_url = {
-            executor.submit(process_url, name, url): name for name, url in main_urls.items()
-        }
-
-        for future in as_completed(future_to_url):
-            name = future_to_url[future]
-            try:
-                result = future.result()
-                if result:
-                    results.update(result)
-            except Exception as e:
-                print(f"Error in processing {name}: {e}")
-
-    t2 = datetime.now()
-    print("End Time:", t2)
-    print("Spend Time:", t2 - t1)
-    print("Final Results:", results)
-
-if __name__ == "__main__":
-    main()
+        print(traceback.format_exc())
+        continue
+    

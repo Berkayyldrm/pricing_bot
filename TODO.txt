@@ -1,2 +1,0 @@
-# Şu an price_data_sender tarafında çekilen fiyatlar, normal fiyatlar, bunu eğer kampanyalı fiyat var ise onu çekecek şekilde güncelle.
-*** Bu işlemi gerçekleştirebilmek için şu anki veri çekme yapısının değiştirilmesi gerekiyor. Şu an veriler tek tek çekilmiyor. Bunun değişmesi lazım.

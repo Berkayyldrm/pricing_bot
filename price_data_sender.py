@@ -6,6 +6,8 @@ import json
 import traceback
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from random import randint
+from urllib.parse import urlparse, urlencode, urlunparse, parse_qs
 
 def publish_message(message):
     credentials = pika.PlainCredentials('user', 'password')
@@ -16,13 +18,14 @@ def publish_message(message):
     connection.close()
 
 def get_response_from_url(url):
+    print(url)
     headers = {
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
         "Accept-Encoding": "gzip, deflate, br, zstd",
         "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Cache-Control": "max-age=0",
+        "Cache-Control": "no-cache",
+        "Pragma": "no-cache",
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "If-Modified-Since": "Fri, 22 Nov 2024 18:10:33 GMT",
     }
     cookies = {
         "gcl_au": "1.1.581871697.1732298393",
@@ -32,25 +35,41 @@ def get_response_from_url(url):
     with httpx.Client(headers=headers, cookies=cookies) as client:
         response = client.get(url)
         return response.content
+    
+def avoid_cache(main_url):
+    random_number = randint(1000000, 9999999)
+
+    parsed_url = urlparse(main_url)
+    query_params = parse_qs(parsed_url.query)
+
+    query_params['filtreler'] = [f"fiyat:min-{random_number}"]
+    new_query = urlencode(query_params, doseq=True)
+
+    updated_url = urlunparse(parsed_url._replace(query=new_query))
+    return updated_url
 
 def process_url(name, main_url):
     try:
-        page = 0
         link_price = {}
         total_product_count = 0
-        while True:
-            page += 1
-            if page == 1:
-                page_link = ""
-                response_content = get_response_from_url(url=main_url+page_link)
-                tree = html.fromstring(response_content)
-                total_product_count = tree.xpath('//span[contains(@class, "totalProductCount")]/text()')[0]
-                total_product_count = int(total_product_count)
-            else:
-                page_link = f"&sayfa={page}"
-                response_content = get_response_from_url(url=main_url+page_link)
-                tree = html.fromstring(response_content)
-            
+
+        # İlk sayfa talebini al ve toplam ürün sayısını öğren
+        initial_url = avoid_cache(main_url)
+        response_content = get_response_from_url(url=initial_url)
+        tree = html.fromstring(response_content)
+        total_product_count = tree.xpath('//span[contains(@class, "totalProductCount")]/text()')[0]
+        total_product_count = int(total_product_count)
+
+        # Toplam sayfa sayısını hesapla
+        total_pages = (total_product_count + 35) // 36  # 36 ürün bir sayfada
+
+        def process_page(page):
+            page_link = "" if page == 1 else f"&sayfa={page}"
+            non_cached_url = avoid_cache(main_url)
+            response_content = get_response_from_url(url=non_cached_url + page_link)
+            tree = html.fromstring(response_content)
+
+            page_link_price = {}
             product_cards = tree.xpath("//li[starts-with(@class, 'productListContent')]")
             for product in product_cards:
                 campaign = product.xpath(".//div[@data-test-id='campaign']/text()")
@@ -68,20 +87,25 @@ def process_url(name, main_url):
                 link = product.xpath(".//a[@title]/@href")
                 if not link:
                     continue
-                link = "https://www.hepsiburada.com" + link[0].strip() 
+                link = "https://www.hepsiburada.com" + link[0].strip()
 
                 if price and link:
-                    link_price[link] = price
+                    page_link_price[link] = price
 
-            if total_product_count / 36 < page:  # 36 one page product count
-                break
-        
-        #link_price = dict(zip(links, prices))
+            return page_link_price
+
+        # Sayfaları paralel işleme
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(process_page, page) for page in range(1, total_pages + 1)]
+            for future in as_completed(futures):
+                link_price.update(future.result())
+
         data = {
             "time": datetime.now().isoformat(),
             "name": name,
-            "link_price": link_price}
-        
+            "link_price": link_price
+        }
+
         message_json = json.dumps(data)
         #print(link_price)
         publish_message(message_json)

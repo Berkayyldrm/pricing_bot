@@ -32,8 +32,16 @@ def get_response_from_url(url):
         "_gid": "GA1.2.2141075332.1732298393",
     }
     with httpx.Client(headers=headers, cookies=cookies) as client:
-        response = client.get(url)
-        return response.content
+        try:
+            response = client.get(url)
+            response.raise_for_status()
+            return response.content
+        except httpx.ReadTimeout:
+            print(f"Timeout error while fetching URL: {url}")
+            return None
+        except httpx.RequestError as e:
+            print(f"Request error for URL {url}: {e}")
+            return None
     
 def avoid_cache(main_url):
     random_number = randint(1000000, 9999999)
@@ -55,6 +63,8 @@ def process_url(name, main_url):
         # İlk sayfa talebini al ve toplam ürün sayısını öğren
         initial_url = avoid_cache(main_url)
         response_content = get_response_from_url(url=initial_url)
+        if response_content is None:
+            return {name: None}
         tree = html.fromstring(response_content)
         total_product_count = tree.xpath('//span[contains(@class, "totalProductCount")]/text()')[0]
         total_product_count = int(total_product_count)
@@ -66,6 +76,8 @@ def process_url(name, main_url):
             page_link = "" if page == 1 else f"&sayfa={page}"
             non_cached_url = avoid_cache(main_url)
             response_content = get_response_from_url(url=non_cached_url + page_link)
+            if response_content is None:
+                return {}
             tree = html.fromstring(response_content)
 
             page_link_price = {}
@@ -97,7 +109,12 @@ def process_url(name, main_url):
         with ThreadPoolExecutor(max_workers=4) as executor:
             futures = [executor.submit(process_page, page) for page in range(1, total_pages + 1)]
             for future in as_completed(futures):
-                link_price.update(future.result())
+                try:
+                    result = future.result()
+                    if result:
+                        link_price.update(result)
+                except Exception as e:
+                    print(f"Error processing future: {e}")
 
         data = {
             "time": datetime.now().isoformat(),

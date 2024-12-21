@@ -3,7 +3,7 @@ import telebot
 import json
 import os
 from dotenv import load_dotenv
-
+import time
 load_dotenv()
 
 TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
@@ -18,6 +18,7 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
 def send_message(message):
     try:
+        time.sleep(1)
         text = message.get("text", "No message text provided")
         category = message.get("category")
         thread_id = THREAD_MAPPING.get(category)

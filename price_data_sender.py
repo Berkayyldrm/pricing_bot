@@ -88,6 +88,10 @@ def process_url(name, main_url):
                     text = campaign[0]
                     pattern = r"\b\d{1,3}(?:\.\d{3})*,\d{2}\b"
                     price = re.findall(pattern, text)
+                    if price:
+                        pass
+                    else:
+                        price = product.xpath(".//div[@data-test-id='price-current-price']/text()")
                 else:
                     price = product.xpath(".//div[@data-test-id='price-current-price']/text()")
 
@@ -135,7 +139,10 @@ def main():
              "hepsiburada_pc": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483646_3000500&tab=allproducts",
              "hepsiburada_ev_elektronigi": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483638&tab=allproducts",
              "hepsiburada_oyun_oyun_konsolu": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=60003054_2147483602&tab=allproducts",
-             "kolaysepet": "https://www.hepsiburada.com/magaza/kolaysepet?kategori=2147483638&tab=allproducts"}
+             "kolaysepet": "https://www.hepsiburada.com/magaza/kolaysepet?kategori=2147483638&tab=allproducts",
+             "robot_supurge_three_brand": "https://www.hepsiburada.com/roborock-xiaomi-dreame/robot-supurge-c-80160033",
+             "mediamrkt_tel": "https://www.hepsiburada.com/magaza/mediamarkt?kategori=2147483642_371965&tab=allproducts&ic=t",
+             "saatsaat_saat_seven_brand": "https://www.hepsiburada.com/magaza/saatvesaat?filtreler=cinsiyet:Erkek&markalar=seiko-guess-fossil-lacoste-michaelkors&kategori=2147483632_318242&tab=allproducts"}
    
     print("----------------------------------------------------------------")
     t1 = datetime.now()

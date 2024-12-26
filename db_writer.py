@@ -79,6 +79,10 @@ def get_selenium_soup(url):
     })
 
     driver.get(url)
+    
+    dt_string = datetime.utcnow()
+    driver.save_screenshot(f"ss_notifications/{dt_string}.png")
+
     html = driver.page_source
     soup = BeautifulSoup(html, 'html.parser')
     driver.quit()

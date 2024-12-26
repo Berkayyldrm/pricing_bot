@@ -1,0 +1,2 @@
+thread worker sayısını artır, core eklendikten sonra
+sadece selected olanların ekran görüntüsünü al ve kaydet

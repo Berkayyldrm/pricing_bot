@@ -31,7 +31,7 @@ def get_response_from_url(url):
         "useinternal": "true",
         "_gid": "GA1.2.2141075332.1732298393",
     }
-    with httpx.Client(headers=headers, cookies=cookies) as client:
+    with httpx.Client(headers=headers, cookies=cookies, timeout=8.0) as client:
         try:
             response = client.get(url)
             response.raise_for_status()

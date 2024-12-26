@@ -11,7 +11,8 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 THREAD_MAPPING = {
     1: None, # ALL
     2: "1358", # Yüzde 50 altı
-    3: "1382" # 5k altı telefon
+    3: "1382", # 5k altı telefon
+    4: "2914"
 }
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)

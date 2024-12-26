@@ -2,6 +2,11 @@ import pika
 import psycopg2
 import json
 from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from bs4 import BeautifulSoup
 
 # Database Configuration
 DB_CONFIG = {
@@ -51,6 +56,55 @@ def create_or_connect_table(name):
         with conn.cursor() as cursor:
             cursor.execute(query)
 
+def get_selenium_soup(url):
+    options = Options()
+    options.add_argument('--headless')  # Arka planda çalışır
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument("start-maximized")
+    options.add_argument("disable-infobars")
+    options.add_argument("--disable-extensions")
+    options.add_argument("--disable-blink-features=AutomationControlled")
+    options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36")
+
+    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
+
+    # Bot algılama özelliklerini devre dışı bırak
+    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
+        "source": """
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined
+            });
+        """
+    })
+
+    driver.get(url)
+    html = driver.page_source
+    soup = BeautifulSoup(html, 'html.parser')
+    driver.quit()
+    return soup
+
+def get_and_check_other_merchants(url):
+    try:
+        soup = get_selenium_soup(url)
+
+        other_merchants_div = soup.find('div', {'data-test-id': 'other-merchants'})
+        if other_merchants_div:
+            data_hbus = other_merchants_div.get('data-hbus')
+            if data_hbus:
+                data_hbus_json = json.loads(data_hbus.replace('&quot;', '"'))
+                price_range = data_hbus_json.get('data', {}).get('price_range')
+
+                price_range = price_range.replace(".", "").replace(",", ".")
+                min_str, max_str = price_range.split(" - ")
+                min_price = float(min_str)
+                max_price = float(max_str)
+                print("Price Range:", price_range)
+                return min_price, price_range
+    except Exception as e:
+        print("get_and_check_other_merchants error", e)
+        return 9999999999, None
+    
 # Insert or update data in a table
 def insert_data(name, time, link_price):
     query = f"""
@@ -104,11 +158,16 @@ def compare_columns(table_name):
                             if not control_price_daily:
                                 control_price_daily = 99999999999
                             if current_price < prev_current_price and current_price < control_price_daily:
-                                change = abs(current_price - prev_current_price) / prev_current_price * 100
-                                if change > 1:
+                                change = (current_price - prev_current_price) / prev_current_price * 100
+                                daily_change = (current_price - control_price_daily) / control_price_daily * 100
+                                if (change < -1) and (daily_change < -1):
+                                    min_price, price_range = get_and_check_other_merchants(id)
                                     message_text = (
                                         f"Url: {id}, Anlık Fiyat: {current_price}, Bir Önceki Fiyat: {prev_current_price},"
-                                        f" Gece Fiyatı: {control_price_daily} \n Anlık Değişim Oranı: {change:.2f}%\n"
+                                        f"Gece Fiyatı: {control_price_daily}\n"
+                                        f"Diğer Satıcılarda Min Fiyat: {min_price}\n"
+                                        f"Diğer Satıcılarda Fiyat Aralığı: {price_range}\n"
+                                        f"Anlık Değişim Oranı: {change:.2f}%"
                                     )
                                     print(f"Change for {table_name}, Message: {message_text}")
                                     message = {
@@ -117,15 +176,23 @@ def compare_columns(table_name):
                                     }
                                     publish_message(message)
 
-                                    if change > 50:
+                                    if change < -50:
                                         message = {
                                         "text": message_text,
                                         "category": 2
                                         }
                                         publish_message(message)
+
+                                    if (change < -30) and (daily_change < -30):
+                                        if current_price <= min_price:
+                                            message = {
+                                                "text": message_text,
+                                                "category": 4
+                                                }
+                                            publish_message(message)
                                 
                             else:
-                                print(f"Price Raised for id: {id} -> current_price: {current_price} , prev_current_price: {prev_current_price}")
+                                print(f"Price Changed for id: {id} -> current_price: {current_price} , prev_current_price: {prev_current_price} , control_price_daily: {control_price_daily}")
                         else:
                             print(f"Some None Values for id: {id} -> current_price: {current_price} , prev_current_price: {prev_current_price}")
                 else:

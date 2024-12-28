@@ -1,7 +1,7 @@
 import pika
 import psycopg2
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -80,7 +80,7 @@ def get_selenium_soup(url):
 
     driver.get(url)
     
-    dt_string = datetime.utcnow()
+    dt_string = datetime.utcnow() + timedelta(hours=3)
     driver.save_screenshot(f"ss_notifications/{dt_string}.png")
 
     html = driver.page_source
@@ -178,7 +178,6 @@ def compare_columns(table_name):
                                     message_text = (
                                         f"Url: {id}, Anlık Fiyat: {current_price}, Bir Önceki Fiyat: {prev_current_price}, "
                                         f"Gece Fiyatı: {control_price_daily}\n"
-                                        f"Diğer Satıcılarda Min Fiyat: {min_price}\n"
                                         f"Diğer Satıcılarda Fiyat Aralığı: {price_range}\n"
                                         f"Anlık Değişim Oranı: {change:.2f}%"
                                     )

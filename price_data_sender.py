@@ -100,9 +100,12 @@ def process_url(name, main_url):
                 price = float(price[0].replace(".", "").replace(",", "."))
 
                 link = product.xpath(".//a[@title]/@href")
-                if not link:
+                if (not link) or (link[0].strip().startswith("https://adservice")):
                     continue
-                link = "https://www.hepsiburada.com" + link[0].strip()
+                if not link[0].strip().startswith("https"):
+                    link = "https://www.hepsiburada.com" + link[0].strip()
+                else:
+                    link = link[0].strip()
 
                 if price and link:
                     page_link_price[link] = price
@@ -141,7 +144,8 @@ def main():
              "hepsiburada_oyun_oyun_konsolu": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=60003054_2147483602&tab=allproducts",
              "kolaysepet": "https://www.hepsiburada.com/magaza/kolaysepet?kategori=2147483638&tab=allproducts",
              "robot_supurge_three_brand": "https://www.hepsiburada.com/roborock-xiaomi-dreame/robot-supurge-c-80160033",
-             "mediamrkt_tel": "https://www.hepsiburada.com/magaza/mediamarkt?kategori=2147483642_371965&tab=allproducts&ic=t",
+             "hepsiburada_ekran": "https://www.hepsiburada.com/magaza/hepsiburada?kategori=2147483638_17201_163192&tab=allproducts&ic=t",
+             #"mediamrkt_tel": "https://www.hepsiburada.com/magaza/mediamarkt?kategori=2147483642_371965&tab=allproducts&ic=t",
              "saatsaat_saat_seven_brand": "https://www.hepsiburada.com/magaza/saatvesaat?filtreler=cinsiyet:Erkek&markalar=seiko-guess-fossil-lacoste-michaelkors&kategori=2147483632_318242&tab=allproducts"}
    
     print("----------------------------------------------------------------")

@@ -99,14 +99,23 @@ def get_and_check_other_merchants(url):
                 data_hbus_json = json.loads(data_hbus.replace('&quot;', '"'))
                 price_range = data_hbus_json.get('data', {}).get('price_range')
 
-                price_range = price_range.replace(".", "").replace(",", ".")
-                min_str, max_str = price_range.split(" - ")
-                min_price = float(min_str)
-                max_price = float(max_str)
-                print("Price Range:", price_range)
-                return min_price, price_range
+                if price_range:
+                    price_range = price_range.replace(".", "").replace(",", ".")
+                    try:
+                        min_str, max_str = price_range.split(" - ")
+                        min_price = float(min_str)
+                        max_price = float(max_str)
+                        print("Price Range:", price_range)
+                        return min_price, price_range
+                    except ValueError:
+                        print("Invalid price range format:", price_range)
+                        return 9999999999, None
+        # Eğer `other_merchants_div` bulunamazsa veya eksikse
+        print("No other merchants found")
+        return 9999999999, None
+
     except Exception as e:
-        print("get_and_check_other_merchants error", e)
+        print("get_and_check_other_merchants error:", e)
         return 9999999999, None
     
 # Insert or update data in a table
@@ -167,7 +176,7 @@ def compare_columns(table_name):
                                 if (change < -1) and (daily_change < -1):
                                     min_price, price_range = get_and_check_other_merchants(id)
                                     message_text = (
-                                        f"Url: {id}, Anlık Fiyat: {current_price}, Bir Önceki Fiyat: {prev_current_price},"
+                                        f"Url: {id}, Anlık Fiyat: {current_price}, Bir Önceki Fiyat: {prev_current_price}, "
                                         f"Gece Fiyatı: {control_price_daily}\n"
                                         f"Diğer Satıcılarda Min Fiyat: {min_price}\n"
                                         f"Diğer Satıcılarda Fiyat Aralığı: {price_range}\n"
